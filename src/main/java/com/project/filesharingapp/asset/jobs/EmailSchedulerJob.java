@@ -1,0 +1,94 @@
+package com.project.filesharingapp.asset.jobs;
+
+import com.project.filesharingapp.asset.model.EmailRequest;
+import com.project.filesharingapp.asset.model.db.Schedule;
+import com.project.filesharingapp.asset.repository.ScheduleRepository;
+import com.project.filesharingapp.asset.service.MailService;
+import com.project.filesharingapp.asset.utilities.DateTimeService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+
+@Component
+@Slf4j
+public class EmailSchedulerJob {
+
+    @Autowired
+    private ScheduleRepository scheduleRepository;
+    @Autowired
+    private MailService mailService;
+
+    @Autowired
+    ThreadPoolTaskScheduler threadPoolTaskScheduler;
+
+    public void scheduleSendMail(Schedule schedule) {
+        log.info("Received a request to set schedule -> {}", schedule.toString());
+        ShareFileTask shareFileTask = new ShareFileTask();
+        shareFileTask.setSchedule(schedule);
+        shareFileTask.setMailService(mailService);
+        log.info("About to schedule it");
+        if (isDateToday(schedule.getSendDate())) {
+            // if the date is today, then send
+            log.info("the send date is for today");
+            // email in the next 15 seconds
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.SECOND, 15);
+            threadPoolTaskScheduler.schedule(shareFileTask, cal.getTime().toInstant());
+        } else {
+            threadPoolTaskScheduler.schedule(shareFileTask, schedule.getSendDate().toInstant());
+        }
+    }
+    private boolean isDateToday(Date date) {
+        Calendar calendar = Calendar.getInstance();
+        Calendar input = Calendar.getInstance();
+        input.setTime(date);
+        if (calendar.get(Calendar.DAY_OF_MONTH) == input.get(Calendar.DAY_OF_MONTH)) {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * Get all the schedules that haven't been sent
+     * isolate those that fall in the current timeframe
+     * iterate through them and create an async task
+     * to send these emails
+     */
+    @Async
+    // @Scheduled(cron = "* 0/45 * * * *")
+    public void sendScheduledEmails() {
+        List<Schedule> toBeSent = new ArrayList<>();
+        String currentRange = DateTimeService.getTimeWindow();
+        log.info("About to get schedules for current hour {} , {}", currentRange, new Date().toString());
+        scheduleRepository.findAll().forEach(schedule -> {
+            if(!schedule.getIsSent()) {
+                toBeSent.add(schedule);
+            }
+        });
+        log.info("About to trigger async job to send emails");
+        scheduleAsyncJob(toBeSent);
+    }
+    public void scheduleAsyncJob(List<Schedule> schedules) {
+        schedules.forEach(schedule -> {
+            log.info("queuing up the following [ {} ] schedule to be sent", schedule.toString());
+            final String message = String.format("%s shared documents with you, check attachments in mail", schedule.getSender());
+            CompletableFuture.runAsync(() -> {
+                String emailSubject = String.format("%s has shared %s with you", schedule.getUsername(), schedule.getFilename());
+                log.info("About to send email with message {}", emailSubject);
+                EmailRequest request = EmailRequest.builder()
+                        .from(schedule.getUsername())
+                        .to(schedule.getReceivers().get(0))
+                        .filesToAttach(new String[]{schedule.getFilename()})
+                        .subject(emailSubject)
+                        .body(message)
+                        .build();
+                mailService.sendEmail(request);
+                scheduleRepository.updateScheduleIsSent(schedule.getId(), true);
+            });
+        });
+    }
+}
