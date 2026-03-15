@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Box, Button, TextField, Container, Avatar, Tooltip, Alert } from "@mui/material";
-import DocumentsImg from '../documents.jpg';
+import DocumentsImg from '../documents.png';
 import { useCookies } from "react-cookie";
 import { RegistrationForm } from "../RegistrationForm";
 import { useGoogleLogin } from "@react-oauth/google";

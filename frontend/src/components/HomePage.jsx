@@ -1,5 +1,5 @@
 import { Box, Button, TextField, Typography, Container, Avatar, Tooltip, Alert } from "@mui/material";
-import Documents from '../documents.jpg';
+import Documents from '../documents.png';
 import { RegistrationForm } from "../RegistrationForm";
 import { useState } from "react";
 
