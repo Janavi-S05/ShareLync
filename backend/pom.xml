@@ -206,7 +206,7 @@
                 </executions>
             </plugin>
 
-            <plugin>
+            <!-- <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
                 <version>1.6</version>
@@ -224,9 +224,9 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin> -->
 
-            <plugin>
+            <!-- <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
@@ -241,7 +241,7 @@
                         <goals><goal>run</goal></goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin> -->
 
         </plugins>
     </build>
