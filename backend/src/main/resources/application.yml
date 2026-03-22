@@ -1,0 +1,51 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+    oauth2:
+      client:
+        registration:
+          google:
+            clientId: ${GOOGLE_CLIENT_ID}
+            clientSecret: ${GOOGLE_CLIENT_SECRET}
+
+  cache:
+    type: redis
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+
+aws:
+  upload-limit: 10
+  region: ${AWS_REGION}
+  key: ${AWS_ACCESS_KEY}
+  secret: ${AWS_SECRET_KEY}
+  dynamo-db:
+    amazonDBEndpoint: ${AWS_DYNAMO_ENDPOINT}
+  s3UploadBucketName: ${AWS_S3_BUCKET}
+
+groq:
+  api-key: ${GROQ_API_KEY}
+
+frontend:
+  url: ${FRONTEND_URL:http://localhost:3000}
