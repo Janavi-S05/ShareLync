@@ -13,7 +13,6 @@ export const RegistrationForm = (props) => {
         const jsonSignup = {};
         jsonSignup["name"] = name;
         jsonSignup["username"] = username;
-        // TODO: still sending password in plain text, FIX!!!
         jsonSignup["password"] = password;
         console.log(`About to create new user with ${JSON.stringify(jsonSignup)}`);
         fetch("/api/user/create", {

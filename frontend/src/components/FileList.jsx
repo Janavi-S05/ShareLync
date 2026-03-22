@@ -1,353 +1,187 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Alert, Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, TextField, Typography } from "@mui/material";
-import { useCookies } from "react-cookie";
-import { API_FILE_PATH } from "../Constants";
-import { AlertDialog } from "../dialogs/AlertDialog";
-import { DateTimeRange } from "./DateRangeSelection";
-import "./components.css";
-import { ScheduleContext } from "./ScheduleContext";
+import React, { useContext, useEffect, useState } from 'react';
+import { AlertDialog } from '../dialogs/AlertDialog';
+import { ScheduleContext } from './ScheduleContext';
+import { useCurrentUser } from '../hooks/useCurrentUser';
+import { useFileActions, getFileIcon, VIEWABLE_EXTENSIONS } from '../hooks/useFileActions';
+import { ShareModal } from './shared/ShareModal';
+import { ScheduleModal } from './shared/ScheduleModal';
+import { useScheduleActions } from '../hooks/useScheduleActions';
 
-export const FileList = (props) => {
-    // This is the correct FileList component
-    const { fileUploadDone, setFileUploadDone } = props;
-    const { schedule } = useContext(ScheduleContext);
+const TAG_COLORS = ['tag-0', 'tag-1', 'tag-2', 'tag-3', 'tag-4', 'tag-5'];
 
-    const [cookies] = useCookies(['user']);
-    // ... (the rest of the correct FileList code follows)
-    const [userFiles, setUserFiles] = useState([]);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-    const [fileToShare, setFileToShare] = useState("");
-    const [showFiles, setShowFiles] = useState(false);
-    const [alertOpen, setAlertOpen] = useState(false);
-    const [notLoginErr, setNotLoginError] = useState(false);
-    const [alertHeader, setAlertHeader] = useState("");
-    const [alertMessage, setAlertMessage] = useState("");
-    const [shareBtnTxt, setShareBtnTxt] = useState("Share");
-    const [shareBtnDisabled, setShareBtnDisabled] = useState(false);
-    const scheduleContext = useContext(ScheduleContext);
-    const [selSchedule, setSelSchedule] = useState({});
+export const FileList = ({ fileUploadDone, setFileUploadDone, onFileChanged }) => {
+  const user = useCurrentUser();
+  const [userFiles, setUserFiles] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [fileToShare, setFileToShare] = useState('');
+  const [showFiles, setShowFiles] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [notLoginErr, setNotLoginError] = useState(false);
+  const [alertHeader, setAlertHeader] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const scheduleContext = useContext(ScheduleContext);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [fileToSchedule, setFileToSchedule] = useState('');
+  const [existingSchedule, setExistingSchedule] = useState(null);
+  const [scheduleMap, setScheduleMap] = useState(new Map());
 
-    const user = React.useMemo(() => {
-        if (cookies.user && typeof cookies.user === 'string') {
-            try {
-                return JSON.parse(cookies.user);
-            } catch (e) {
-                return null;
-            }
+  const { fetchAllSchedules } = useScheduleActions(user);
+
+  // After delete — refresh FileList AND tell Dashboard something changed
+  const handleFileChanged = () => {
+    filesUploaded();
+    if (onFileChanged) onFileChanged();
+  };
+
+  const { deleteFile, viewFile, shareFile, generatePublicLink, copyState } =
+    useFileActions(user, handleFileChanged);
+
+  useEffect(() => {
+    if (fileUploadDone) {
+      filesUploaded();
+      setFileUploadDone(false);
+      if (onFileChanged) onFileChanged(); // tell FileBrowser about upload too
+    }
+  }, [fileUploadDone]);
+
+  async function filesUploaded() {
+    if (!user) { setNotLoginError(true); return; }
+    try {
+      const resp = await fetch(`/api/file/by?username=${user.username}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const data = await resp.json();
+      if (data.status >= 400) {
+        setAlertHeader('Error');
+        setAlertMessage(data.data || 'Could not fetch files.');
+        setAlertOpen(true);
+      } else {
+        const files = Array.isArray(data.data) ? data.data : [];
+        setUserFiles(files);
+        setShowFiles(true);
+        // Build scheduleMap from the embedded schedule data already in the response.
+        // Fall back to a dedicated API call only if the backend doesn't embed schedules.
+        const embedded = new Map(
+          files
+            .filter((f) => f.schedule)
+            .map((f) => [f.filename, f.schedule])
+        );
+        if (embedded.size > 0) {
+          setScheduleMap(embedded);
+        } else {
+          // Fallback: fetch schedules separately (handles backends that don't embed them)
+          const fetched = await fetchAllSchedules();
+          setScheduleMap(fetched);
         }
-        return cookies.user;
-    }, [cookies.user]);
-
-
-    useEffect(() => {
-        if (fileUploadDone) {
-            filesUploaded();
-            setFileUploadDone(false);
-        }
-    });
-
-    const handleAlertClose = () => {
-        setAlertHeader("");
-        setAlertMessage("");
-        setAlertOpen(false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch files:', err);
+      setAlertHeader('Network Error');
+      setAlertMessage('Could not connect to the server.');
+      setAlertOpen(true);
     }
-    const handleLoginAlertClose = () => {
-        setNotLoginError(false);
-    }
+  }
 
-    const filesUploaded = async () => {
-        if (!user) {
-            setNotLoginError(true);
-            return;
-        }
-        
-        const urlStr2 = `/api/file/by?username=${user.username}`;
-        fetch(urlStr2, {
-            headers: {
-                Authorization: `Bearer ${user.token}`,
-            },
-        }).then(async resp => {
-            const data = await resp.json();
+  const getSendDateStr = (date) => date.split('T')[0];
 
-            if (data.status >= 400) {
-                setAlertHeader("Error");
-                setAlertMessage(data.data || "Could not fetch files.");
-                setAlertOpen(true);
-            } else {
-                setUserFiles(Array.isArray(data.data) ? data.data : []);
-                setShowFiles(true);
-            }
-        }).catch(err => {
-            console.error("Failed to fetch files:", err);
-            setAlertHeader("Network Error");
-            setAlertMessage("Could not connect to the server to get files.");
-            setAlertOpen(true);
-        });
-    }
+  const openScheduleModal = (filename) => {
+    setFileToSchedule(filename);
+    setExistingSchedule(scheduleMap.get(filename) || null);
+    setScheduleModalOpen(true);
+  };
 
-    async function deleteFile(filename) {
-        const urlStr = `${API_FILE_PATH}/delete/${filename}?userId=${user.username}`;
-        await fetch(urlStr, {
-            method: "DELETE",
-            headers: {
-                Authorization: `Bearer ${user.token}`,
-            },
-        });
-        filesUploaded();
-    }
-    
-    const openDialog = (file) => {
-        setFileToShare(file);
-        setDialogOpen(true);
-    }
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div className="sl-label" style={{ margin: 0, flex: 1 }}>Your Documents</div>
+        <button
+          className={`sl-btn ${showFiles ? 'sl-btn-ghost' : 'sl-btn-primary'} sl-btn-sm`}
+          onClick={showFiles ? () => setShowFiles(false) : filesUploaded}
+          disabled={!user}
+        >
+          {showFiles ? 'Hide' : 'Load files'}
+        </button>
+      </div>
 
-    // const openScheduleDialog = (file) => {
-    //     setSelSchedule(file.schedule);
-    //     if (file.schedule && file.schedule.id) {
-    //         scheduleContext.schedule.id = file.schedule.id;
-    //     }
-    //     setFileToShare(file.filename);
-    //     setScheduleDialogOpen(true);
-    // }
-    // const cancelAndCloseScheduleDialog = (e) => {
-    //     setScheduleDialogOpen(false);
-    // }
-    // const scheduleDialogClose = (e) => {
-    //     setScheduleDialogOpen(false);
+      {showFiles && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {userFiles.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📂</div>
+              <div style={{ fontSize: '0.85rem' }}>No files uploaded yet</div>
+            </div>
+          ) : userFiles.map((file, rowIdx) => (
+            <div
+              key={file.filename}
+              className="file-row"
+              style={{ animationDelay: `${rowIdx * 0.05}s` }}
+            >
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '1.4rem', flexShrink: 0, marginTop: 2 }}>{getFileIcon(file.filename)}</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="file-name">{file.filename}</div>
+                  {(() => {
+                    const sched = scheduleMap.get(file.filename) || file.schedule;
+                    return sched ? (
+                      <div className="file-meta">
+                        📅 Scheduled: {getSendDateStr(sched.sendDate)} → {sched.receivers?.[0] || ''}
+                      </div>
+                    ) : null;
+                  })()}
+                  <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {file.tags && file.tags.length > 0 ? (
+                      file.tags.map((tag, i) => (
+                        <span key={tag} className={`tag-chip ${TAG_COLORS[i % TAG_COLORS.length]}`}>{tag}</span>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: "'DM Mono', monospace", fontStyle: 'italic' }}>
+                        AI tags generating…
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="file-actions">
+                <button className="sl-btn sl-btn-ghost sl-btn-sm" onClick={() => viewFile(file.filename)}>
+                  {VIEWABLE_EXTENSIONS.has(file.filename.split('.').pop().toLowerCase()) ? 'View' : 'Download'}
+                </button>
+                <button className="sl-btn sl-btn-ghost sl-btn-sm" onClick={() => { setFileToShare(file.filename); setDialogOpen(true); }}>Share</button>
+                <button
+                  className={`sl-btn sl-btn-sm ${scheduleMap.get(file.filename) ? 'sl-btn-primary' : 'sl-btn-ghost'}`}
+                  onClick={() => openScheduleModal(file.filename)}
+                >
+                  {scheduleMap.get(file.filename) ? '📅 Scheduled' : 'Schedule'}
+                </button>
+                <button className="sl-btn sl-btn-ghost sl-btn-sm" onClick={() => generatePublicLink(file.filename)}>
+                  {copyState[file.filename] ? 'Copied' : 'Link'}
+                </button>
+                <button className="sl-btn sl-btn-danger sl-btn-sm" onClick={() => deleteFile(file.filename)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-    //     const sendDate = scheduleContext.schedule.date.year() +
-    //     '-' + (scheduleContext.schedule.date.month()+1) + 
-    //     '-' + scheduleContext.schedule.date.date();
-        
-    //     const postObj = {
-    //         "sendDate": sendDate,
-    //         "receivers": [scheduleContext.schedule.to],
-    //         "senderEmail": user.username,
-    //         "senderName": user.google ? user.google.name: user.name,
-    //         "isRecurring": false,
-    //         "filename": fileToShare
-    //     };
-    //     let url = '/api/schedule/';
-    //     let method = "POST";
-    //     if (scheduleContext.schedule.id) {
-    //         url = '/api/schedule/'+scheduleContext.schedule.id;
-    //         method = "PUT"
-    //     }
-    //     fetch(url, {
-    //         method: method,
-    //         headers: {
-    //             Authorization: `Bearer ${user.token}`,
-    //             "Content-Type": "application/json",
-    //         },
-    //         body: JSON.stringify(postObj)
-    //     }).then(resp => {
-    //         console.log(resp);
-    //     });
-    // }
+      {dialogOpen && (
+        <ShareModal
+          filename={fileToShare}
+          onShare={shareFile}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
 
-    const generatePublicLink = async (filename) => {
-        try {
+      {scheduleModalOpen && (
+        <ScheduleModal
+          filename={fileToSchedule}
+          user={user}
+          existingSchedule={existingSchedule}
+          onClose={() => setScheduleModalOpen(false)}
+          onSaved={filesUploaded}
+        />
+      )}
 
-            const resp = await fetch(
-                `/api/link/generate?username=${user.username}&filename=${filename}`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${user.token}`
-                    }
-                }
-            )
-
-            const link = await resp.text()
-
-            await navigator.clipboard.writeText(link)
-
-            alert("Public link copied:\n" + link)
-
-        } catch (error) {
-            console.error("Error generating public link", error)
-        }
-    }
-
-    const getSendDateStr = (date) => {
-        return date.split('T')[0];
-    }
-
-    const closeDialog = () => {
-        setDialogOpen(false);
-    }
-
-    const shareFile = (e) => {
-        setShareBtnDisabled(true);
-        setShareBtnTxt("Sharing...");
-        e.preventDefault();
-        const emailAdd = document.getElementById("shareEmailId").value;
-        const filename = `${user.username}/${fileToShare}`;
-        const msg = `${user.name} shared ${fileToShare} with you`;
-        const emailBody = {
-            to: emailAdd,
-            cc: [],
-            bcc: [],
-            subject: msg,
-            body: `Dear ${emailAdd}, kindly download the attachment`,
-            filesToAttach: [filename],
-        };
-        fetch("/api/social/sendMail", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${user.token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(emailBody),
-        }).then(() => {
-            setDialogOpen(false);
-            setShareBtnDisabled(false);
-            setShareBtnTxt("Share");
-        }).catch(e => {
-            console.log(`Error occured ${e}`);
-            console.log(JSON.stringify(e));
-            setDialogOpen(false);
-            setShareBtnDisabled(false);
-            setShareBtnTxt("Share");
-        });
-    }
-    const hideFiles = () => {
-        setShowFiles(false);
-    }
-    const viewFile = async(file) => {
-        const url = `/api/file/${file}/view?userId=${user.username}`;
-
-        try {
-
-            const resp = await fetch(url, {
-                headers: {
-                    Authorization: `Bearer ${user.token}`
-                }
-            });
-
-            const presignedUrl = await resp.text();
-
-            // redirect browser to S3
-            window.location.href = presignedUrl;
-
-        } catch (err) {
-            console.error("Download error", err);
-        }
-    }
-
-    return (
-        <Container sx={{
-            marginLeft: "auto",
-            marginRight: "auto"
-        }}>
-            <Box>
-                {user && showFiles ? (
-                    <Box p={2} gap={2} sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        overflow: "scroll",
-                        boxShadow: "3px 1px 5px 5px grey",
-                        borderRadius: 8,
-                        marginLeft: "auto",
-                        marginRight: "auto",
-                        marginBottom: 5
-                    }}>
-                        <Box className="Flex-column-layout">
-                            <Button variant="contained"
-                                onClick={hideFiles}
-                                sx={{ marginBottom: 2 }}
-                                data-test="hideFiles">
-                                Hide
-                            </Button>
-                            <Typography component={'span'} >
-                                Files Uploaded by <Chip label={user.name ?? user.username}></Chip>
-                            </Typography>
-                        </Box>
-                        <Divider orientation="horizontal" flexItem />
-                        
-                        {userFiles.length > 0 ? userFiles.map((file) => (
-                            <Box key={file.filename} className="Flex-column">
-                                <Box>
-                                    <Typography component={'span'} variant="body"><b>{file.filename}</b>
-                                    </Typography>
-                                    
-                                    {file.schedule ? 
-                                    <p>Schedule: {getSendDateStr(file.schedule.sendDate)}</p>
-                                    : <></> }
-                                </Box>
-                                <Box>
-                                    <Button size="small"
-                                        onClick={() => viewFile(file.filename)}> View </Button>
-                                    <Button size="small"
-                                        onClick={() => deleteFile(file.filename)}> Delete </Button>
-                                    <Button size="small"
-                                        onClick={() => openDialog(file.filename)}> Share </Button>
-                                    <Button size="small"
-                                        onClick={()=> generatePublicLink(file.filename)}> Public Link </Button>
-                                </Box>
-                            </Box>
-                        )) : <Typography>No files found.</Typography>}
-                    </Box>
-                ) : (
-                    <Box gap={2} sx={{ marginBottom: 5 }}>
-                        <Button
-                            data-test="showFiles"
-                            variant="contained"
-                            size="small"
-                            onClick={filesUploaded}
-                            disabled={user == null}>
-                            Show
-                        </Button>
-                    </Box>
-                )}
-            </Box>
-
-            <AlertDialog open={alertOpen}
-                handleClose={handleAlertClose}
-                title={alertHeader}
-                content={alertMessage} />
-
-            <AlertDialog open={notLoginErr}
-                handleClose={handleLoginAlertClose}
-                title="Not Logged in"
-                content="You need to login first before using this" />
-
-
-            <Dialog
-                open={dialogOpen}
-                onClose={closeDialog}
-                PaperProps={{
-                    component: 'form',
-                    onSubmit: shareFile
-                }}>
-                <DialogTitle> Share File</DialogTitle>
-                <DialogContent className="Flex-column-layout">
-                    <Alert variant="outlined" severity="info">
-                        Only 1 email address supported
-                    </Alert>
-                    <TextField autoFocus
-                        fullWidth
-                        required
-                        margin="dense"
-                        label="Email address to share with"
-                        placeholder="Enter that person's email address"
-                        type="email"
-                        id="shareEmailId"
-                    />
-                </DialogContent>
-
-                <DialogActions>
-                    <Button variant="contained"
-                        size="small"
-                        onClick={closeDialog}>Close</Button>
-                    <Button variant="contained"
-                        disabled={shareBtnDisabled}
-                        size="small"
-                        type="submit">{shareBtnTxt}</Button>
-                </DialogActions>
-            </Dialog>
-        </Container >
-    )
-}
+      <AlertDialog open={alertOpen} handleClose={() => setAlertOpen(false)} title={alertHeader} content={alertMessage} />
+      <AlertDialog open={notLoginErr} handleClose={() => setNotLoginError(false)} title="Not Signed In" content="Please sign in to manage your files." />
+    </div>
+  );
+};

@@ -1,58 +1,62 @@
-import { Alert, Box, Container, TextField } from "@mui/material";
-import { useContext, useEffect, useState } from "react";
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import "./components.css";
-import { ScheduleContext } from "./ScheduleContext";
-import dayjs from "dayjs";
+import { useContext, useEffect, useState } from 'react';
+import './components.css';
+import { ScheduleContext } from './ScheduleContext';
 
-export const DateTimeRange = (props) => {
-    const { fileId, savedSchedule } = props;
-    const [emailToSendTo, setEmailToSendTo] = useState("");
-    const [selDate, setSelDate] = useState(null);
-    const { schedule, setSchedule } = useContext(ScheduleContext);
-    
-    useEffect(() => {
-        if(savedSchedule) {
-            setEmailToSendTo(savedSchedule.receivers[0]);
-            schedule.to = savedSchedule.receivers[0];
-            const dateStr = savedSchedule.sendDate.split('T')[0];
-            
-            setSelDate(dayjs(dateStr));
-        }
-    });
+export const DateTimeRange = ({ fileId, savedSchedule }) => {
+  const [emailToSendTo, setEmailToSendTo] = useState('');
+  const [selDate, setSelDate] = useState('');
+  const { schedule, setSchedule } = useContext(ScheduleContext);
 
-    return (
-        <Container style={{ display: 'flex', flexDirection: 'column', marginTop: 8, padding: 0 }}>
-            <Box className="Center-text">
-                <Alert variant="outlined" severity="info">
-                    Date & time when you want to share it
-                </Alert>
-            </Box>
-            <Box className="Date-time">
-                <TextField autoFocus
-                    fullWidth
-                    required
-                    value={emailToSendTo}
-                    onChange={(e) => {
-                        setEmailToSendTo(e.target.value);
-                        schedule.to = e.target.value;
-                    }}
-                    margin="dense"
-                    label="Email address to send it to"
-                    placeholder="Enter the receiver's email address"
-                    type="email"
-                    id="scheduleShareEmailId"
-                />
-                <DatePicker
-                    label="Scheduled Date"
-                    value={selDate}
-                    onChange={newVal => {
-                        setSelDate(newVal);
-                        schedule.date = newVal;
-                    }}
-                    minDate={dayjs(new Date())}
-                    format="YYYY-MM-DD" />
-            </Box>
-        </Container>
-    );
-}
+  // Fixed: dependency array prevents running on every render
+  useEffect(() => {
+    if (!savedSchedule) return;
+    const email = savedSchedule.receivers[0] || '';
+    const dateStr = savedSchedule.sendDate ? savedSchedule.sendDate.split('T')[0] : '';
+    setEmailToSendTo(email);
+    setSelDate(dateStr);
+    // Update context — do not mutate schedule object directly
+    setSchedule(prev => ({ ...prev, to: email, date: dateStr }));
+  }, [savedSchedule]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', marginTop: 8, padding: 0 }}>
+      <div className="sl-alert sl-alert-info" style={{ marginBottom: 12 }}>
+        Date &amp; time when you want to share it
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="sl-input-group">
+          <label className="sl-input-label">Recipient email</label>
+          <input
+            className="sl-input"
+            autoFocus
+            required
+            type="email"
+            value={emailToSendTo}
+            placeholder="Enter the receiver's email address"
+            onChange={(e) => {
+              setEmailToSendTo(e.target.value);
+              setSchedule(prev => ({ ...prev, to: e.target.value }));
+            }}
+          />
+        </div>
+
+        <div className="sl-input-group">
+          <label className="sl-input-label">Scheduled date</label>
+          <input
+            className="sl-input"
+            type="date"
+            value={selDate}
+            min={today}
+            onChange={(e) => {
+              setSelDate(e.target.value);
+              setSchedule(prev => ({ ...prev, date: e.target.value }));
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};

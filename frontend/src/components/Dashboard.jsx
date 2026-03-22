@@ -1,90 +1,58 @@
 import * as React from 'react';
-import { useTheme } from '@mui/material/styles';
-import AppBar from '@mui/material/AppBar';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import { UserAuth } from './UserAuth';
 import { FileUpload } from './FileUpload';
-import { Divider } from '@mui/material';
 import { FileList } from './FileList';
 import { FileBrowser } from './FileBrowser';
 import { ScheduleProvider } from './ScheduleContext';
-import PropTypes from 'prop-types';
 
-// The Dashboard now receives the user and setIsLoggedIn as props
 export const Dashboard = ({ user, setIsLoggedIn }) => {
-    const [fileUploadDone, setFileUploadDone] = React.useState(false);
-    const theme = useTheme();
-    const [value, setValue] = React.useState(0);
+  const [fileUploadDone, setFileUploadDone] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState(0);
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0);
 
-    const handleChange = (event, newValue) => {
-        setValue(newValue);
-    };
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
-    return (
-        <Box sx={{ bgcolor: 'background.paper'}}>
-            <AppBar position="static">
-                <Tabs
-                    value={value}
-                    onChange={handleChange}
-                    indicatorColor="secondary"
-                    textColor="inherit"
-                    variant="fullWidth"
-                    aria-label="full width tabs example"
-                >
-                    <Tab label="Home" {...a11yProps(0)} />
-                    <Tab label="Documents" {...a11yProps(1)} />
-                </Tabs>
-            </AppBar>
-            <TabPanel value={value} index={0} dir={theme.direction}>
-                <UserAuth userLoggedIn={true} setUserLoggedIn={setIsLoggedIn} />
-
-                <Divider sx={{ margin: 2 }} flexItem orientation="horizontal" />
-
-                <FileUpload setFileUploaded={setFileUploadDone} />
-
-                <Divider sx={{ margin: 2 }} flexItem orientation="horizontal" />
-                <ScheduleProvider>
-                    <FileList fileUploadDone={fileUploadDone} setFileUploadDone={setFileUploadDone} />
-                </ScheduleProvider>
-            </TabPanel>
-            <TabPanel value={value} index={1} dir={theme.direction}>
-                <FileBrowser />
-            </TabPanel>
-        </Box>
-    );
-}
-
-function TabPanel(props) {
-    const { children, value, index, ...other } = props;
-    return (
-      <div
-        role="tabpanel"
-        hidden={value !== index}
-        id={`full-width-tabpanel-${index}`}
-        aria-labelledby={`full-width-tab-${index}`}
-        {...other}
-      >
-        {value === index && (
-          <Box>
-            <Typography component='div'>{children}</Typography>
-          </Box>
-        )}
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 28 }}>
+        <UserAuth userLoggedIn={true} setUserLoggedIn={setIsLoggedIn} />
       </div>
-    );
-}
-  
-TabPanel.propTypes = {
-    children: PropTypes.node,
-    index: PropTypes.number.isRequired,
-    value: PropTypes.number.isRequired,
+
+      <div className="sl-tabs">
+        <button
+          className={`sl-tab${activeTab === 0 ? ' active' : ''}`}
+          onClick={() => setActiveTab(0)}
+        >
+          📁 &nbsp;My Files
+        </button>
+        <button
+          className={`sl-tab${activeTab === 1 ? ' active' : ''}`}
+          onClick={() => setActiveTab(1)}
+        >
+          🔍 &nbsp;Browse
+        </button>
+      </div>
+
+      {activeTab === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div className="sl-card sl-card-accent fade-in">
+            <FileUpload setFileUploaded={setFileUploadDone} onFileChanged={triggerRefresh} />
+          </div>
+          <div className="sl-card fade-in fade-in-delay-1">
+            <ScheduleProvider>
+              <FileList
+                fileUploadDone={fileUploadDone}
+                setFileUploadDone={setFileUploadDone}
+                onFileChanged={triggerRefresh}
+              />
+            </ScheduleProvider>
+          </div>
+        </div>
+      )}
+
+      <div className="sl-card fade-in" style={{ display: activeTab === 1 ? 'block' : 'none' }}>
+        <FileBrowser refreshTrigger={refreshTrigger} />
+      </div>
+    </div>
+  );
 };
-  
-function a11yProps(index) {
-    return {
-        id: `full-width-tab-${index}`,
-        'aria-controls': `full-width-tabpanel-${index}`,
-    };
-}
