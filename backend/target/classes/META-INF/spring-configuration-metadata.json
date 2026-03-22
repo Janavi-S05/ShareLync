@@ -1,0 +1,42 @@
+{
+  "groups": [
+    {
+      "name": "aws",
+      "type": "com.project.filesharingapp.asset.config.AWSConfig",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    }
+  ],
+  "properties": [
+    {
+      "name": "aws.amazon-d-b-endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    },
+    {
+      "name": "aws.key",
+      "type": "java.lang.String",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    },
+    {
+      "name": "aws.region",
+      "type": "java.lang.String",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    },
+    {
+      "name": "aws.s3-upload-bucket-name",
+      "type": "java.lang.String",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    },
+    {
+      "name": "aws.secret",
+      "type": "java.lang.String",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    },
+    {
+      "name": "aws.upload-limit",
+      "type": "java.lang.Integer",
+      "sourceType": "com.project.filesharingapp.asset.config.AWSConfig"
+    }
+  ],
+  "hints": []
+}

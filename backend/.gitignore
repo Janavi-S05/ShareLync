@@ -1,0 +1,4 @@
+src/main/resources/application.yml
+target/classes/application.yml
+node_modules/
+.env
