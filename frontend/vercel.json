@@ -1,8 +1,8 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "https://sharelync.onrender.com/api/:path*"
+      "src": "/api/(.*)",
+      "dest": "https://sharelync.onrender.com/api/$1"
     }
   ]
 }
