@@ -1,4 +1,4 @@
-# ShareLync - AI Integrated Secure File Sharing Platform
+# ShareLync - Secure File Sharing Platform
 
 ShareLync is a cloud-based file sharing and management platform built using Spring Boot and React. It enables users to securely upload, organize, search, and share files while leveraging AI to automatically generate document summaries. The application integrates AWS cloud services for scalable storage and metadata management and uses JWT-based authentication to ensure secure access.
 
