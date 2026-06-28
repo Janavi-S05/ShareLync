@@ -107,4 +107,3 @@ ShareLync is a cloud-based file sharing and management platform built using Spri
 | accessType | Public / Private |
 
 ---
----
